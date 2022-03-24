@@ -35,7 +35,7 @@ class HmDianPingApplicationTests {
     }*/
 
     /**
-     * 商品预热
+     * 商品预热.
      */
     @Test
     void testSaveShop() {
