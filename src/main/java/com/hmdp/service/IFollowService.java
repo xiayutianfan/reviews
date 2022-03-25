@@ -1,5 +1,6 @@
 package com.hmdp.service;
 
+import com.hmdp.dto.Result;
 import com.hmdp.entity.Follow;
 import com.baomidou.mybatisplus.extension.service.IService;
 
@@ -13,4 +14,17 @@ import com.baomidou.mybatisplus.extension.service.IService;
  */
 public interface IFollowService extends IService<Follow> {
 
+    /**
+     * 关注和取关
+     */
+    Result follow(Long followUserId, Boolean isFollow);
+
+    Result isFollow(Long followUserId);
+
+    /**
+     * 共同关注
+     * @param id
+     * @return
+     */
+    Result followCommons(Long id);
 }

@@ -1,10 +1,15 @@
 -- 异步秒杀的lua脚本
 
+-- 先去redis创建1个组
+-- XGROUP create stream.orders g1 0 mkstream
+
 -- 1.参数列表
 -- 1.1.优惠券id
 local voucherId = ARGV[1]
 -- 1.2 用户id
 local userId = ARGV[2]
+-- 1.3订单id
+local orderId = ARGV[3]
 
 -- 2.数据key
 -- 2.1库存key 这里拼接不是用 + 而是 ..
@@ -28,4 +33,6 @@ end
 redis.call('incrby', stockKey, -1)
 -- 3.5 下单,保存用户 使用sadd orderKey userId
 redis.call('sadd', orderKey, userId)
+-- 3.6发送小新到队列中,XADD stream.orders * k1 v1 k2 v2
+redis.call('xadd', 'stream.orders', '*', 'userId', userId, 'voucherId', voucherId, 'id', orderId)
 return 0
