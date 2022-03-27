@@ -100,4 +100,21 @@ public class UserController {
         return Result.ok(userDTO);
     }
 
+    /**
+     * 实现签到功能
+     * @return
+     */
+    @PostMapping("/sign")
+    public Result sign() {
+        return Result.ok(userService.sign());
+    }
+
+    /**
+     * 实现连续签到功能
+     */
+    @GetMapping("/sign/count")
+    public Result signCount() {
+        return Result.ok(userService.signCount());
+    }
+
 }

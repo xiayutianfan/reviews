@@ -5,6 +5,7 @@ import cn.hutool.core.util.BooleanUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.hmdp.dto.Result;
+import com.hmdp.dto.ScrollResult;
 import com.hmdp.dto.UserDTO;
 import com.hmdp.entity.Blog;
 import com.hmdp.entity.Follow;
@@ -18,9 +19,11 @@ import com.hmdp.utils.RedisConstants;
 import com.hmdp.utils.SystemConstants;
 import com.hmdp.utils.UserHolder;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -165,7 +168,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         blog.setUserId(user.getId());
         // 保存探店博文
         boolean isSuccess = save(blog);
-        if (isSuccess) {
+        if (isSuccess == false) {
             return Result.fail("新增博客失败~");
         }
         // 查询博客作者的所有粉丝
@@ -180,5 +183,57 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         }
         // 返回id
         return Result.ok(blog.getId());
+    }
+
+    /**
+     * 推送给粉丝的博客
+     */
+    @Override
+    public Result queryBlogOgFollow(Long max, Integer offset) {
+        //1.获取当前用户
+        Long userId = UserHolder.getUser().getId();
+        //2.查询粉丝收件箱
+        String key = "feed:" + userId;
+        //滚动分页查询 ZREVRANGEBYSCORE key max min withscores limit offset count
+        Set<ZSetOperations.TypedTuple<String>> typedTuples = stringRedisTemplate.opsForZSet()
+                .reverseRangeByScoreWithScores(key, 0, max, offset, 2);
+        //判断一下
+        if (typedTuples == null || typedTuples.isEmpty())
+            return Result.ok();
+        //3.解析数据: blogId minTime时间戳 offset
+        List<Long> ids = new ArrayList<>(typedTuples.size());
+        long minTime = 0;
+        int os = 1;
+        for (ZSetOperations.TypedTuple<String> tuple : typedTuples) {
+            //获取粉丝关注的id值(这里获取的是 redis zset 里面的value值)
+            String idStr = tuple.getValue();
+            ids.add(Long.valueOf(idStr));
+            //获取分数(时间戳)
+            long time = tuple.getScore().longValue();
+            if (time == minTime) {
+                os++;
+            } else {
+                minTime = time;
+                os = 1;
+            }
+        }
+        //4.根据id查询blog
+        String idStr = StrUtil.join(",", ids);
+        //这里要返回有序的 (select * from tb_user where id in(1, 2, 3, 4)order by field(id, 4, 1, 2,3);)
+        List<Blog> blogs = query().in("id", ids).last("order by field(id,"+ idStr +")").list();
+
+        for (Blog blog : blogs) {
+            //查询blog有关的用户
+            queryBlogUser(blog);
+            //查询blog是否被点赞
+            isBlogLiked(blog);
+        }
+
+        //5.封装返回
+        ScrollResult r = new ScrollResult();
+        r.setList(blogs);
+        r.setOffset(os);
+        r.setMinTime(minTime);
+        return Result.ok(r);
     }
 }

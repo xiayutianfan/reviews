@@ -88,4 +88,14 @@ public class BlogController {
         return Result.ok(records);
     }
 
+
+    /**
+     * 推送给粉丝的博客
+     */
+    @GetMapping("/of/follow")
+    public Result queryBlogOgFollow(@RequestParam("lastId") Long max,
+                                    @RequestParam(value = "offset", defaultValue = "0") Integer offset) {
+        return Result.ok(blogService.queryBlogOgFollow(max, offset));
+    }
+
 }
